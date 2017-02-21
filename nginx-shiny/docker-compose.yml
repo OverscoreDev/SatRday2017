@@ -1,0 +1,19 @@
+version: '2'
+services:
+  nginx:
+    restart: always
+    build: ./web/
+    container_name: nginx
+    ports:
+      - "80:80"
+    links:
+      - shiny
+
+  shiny:
+    image: rocker/shiny
+    restart: always
+    container_name: shiny
+    volumes:
+      - /home/chiron/shinyapps:/srv/shiny-server/
+      - /home/chiron/services/volumes/shiny/logs:/var/log/
+      - /home/chiron/services/volumes/shiny/packages:/home/shiny/
