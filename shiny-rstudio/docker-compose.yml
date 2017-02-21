@@ -1,0 +1,24 @@
+rstudio:
+  image: rocker/hadleyverse
+  container_name: rstudio
+  ports:
+    - "8787:8787"
+  environment:
+    - VIRTUAL_PORT=8787
+    - ROOT=TRUE
+  #  - VIRTUAL_HOST=rstudio.DOMAIN.tld
+    - USER=rstudio
+    - PASSWORD=rstudio
+
+shiny:
+  image: myshiny:v1
+  container_name: shiny
+  # Specify a vhost as required
+  # environment:
+  #  - VIRTUAL_HOST=shiny.DOMAIN.tld
+  ports:
+    - "3838:3838"
+  volumes:
+    - /home/chiron/shinyapps:/srv/shiny-server/
+    - /home/chiron/services/volumes/shiny/logs:/var/log/
+    - /home/chiron/services/volumes/shiny/packages:/home/shiny/

@@ -240,6 +240,11 @@ You can now access the container by going to a browser and typing in `http://IPA
 You'll need to login with your_user_name as per the Nginx steps above and should see "Welcome to Shiny Server"
 scp -r /home/chiron/0-Dev/satrday/nginx chiron@ :/home/
 
+### Shiny with Rstudio using Docker-compose
+
+You can now go `~/shiny-rstudio` and then check out the [docker-compose.yml](/shiny-rstudio/docker-compose.yml)
+To run this stack you can access this via:
+
 
 ### Out of the Box Auth0 Implementation (Almost complete)
 
