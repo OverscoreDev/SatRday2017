@@ -129,16 +129,20 @@ $(document).ready(function () {
 <li><a href="#docker-installation">Docker installation</a></li>
 <li><a href="#docker-quick-reference">Docker Quick Reference</a></li>
 <li><a href="#pulling-the-docker-shiny-container">Pulling the Docker Shiny Container</a></li>
-<li><a href="#shiny-apps">Shiny Apps</a></li>
 <li><a href="#building-our-own-custom-shiny-container">Building our own custom shiny container</a></li>
 <li><a href="#get-a-custom-nginx-running">Get a custom Nginx running</a>
 <ul>
 <li><a href="#adding-htaccess-users">Adding HTACCESS Users</a></li>
 </ul></li>
 </ul></li>
-<li><a href="#part-b---shiny-server-authentication--orchestration">PART B - Shiny Server Authentication &amp; Orchestration</a>
+<li><a href="#part-b---shiny--rstudio-and-nginx-orchestration">PART B - Shiny / RStudio and Nginx Orchestration</a>
 <ul>
-<li><a href="#putting-nginx-and-shiny-togeter-with-docker-compose">Putting Nginx and Shiny togeter with Docker-compose</a></li>
+<li><a href="#nginx-and-shiny-with-docker-compose">Nginx and Shiny with Docker-compose</a></li>
+<li><a href="#shiny-and-rstudio-using-docker-compose">Shiny and Rstudio using Docker-compose</a></li>
+</ul></li>
+<li><a href="#part-c---shiny-authentication-with-oauth">PART C - Shiny Authentication with OAuth</a>
+<ul>
+<li><a href="#shinyproxyio-and-containers">ShinyProxy.io and Containers</a></li>
 <li><a href="#out-of-the-box-auth0-implementation-almost-complete">Out of the Box Auth0 Implementation (Almost complete)</a></li>
 <li><a href="#notes">Notes</a></li>
 </ul></li>
@@ -150,6 +154,11 @@ $(document).ready(function () {
 <blockquote>
 <p>Get started with downloading the <a href="https://view.attach.io/BJlisRYYg">Slide Deck here</a> - This is what you can use to follow with the documents</p>
 </blockquote>
+<p><strong>TODO</strong></p>
+<ul>
+<li>Add SSL Encryption into the Docker-compose stack for Auth0 + Shiny + Nginx (Letsencrypt)</li>
+<li>Nginx Optimizations</li>
+</ul>
 <hr />
 <p><strong>Assumptions</strong></p>
 <p>This document assumes that you are familiar with SSH, SSH Keys, Linux Command line and that you have an Ubuntu 16.04 (Xenial) Server running somewhere.</p>
@@ -159,11 +168,6 @@ $(document).ready(function () {
 <p><a href="https://docs.docker.com/engine/reference/run/">Docker Run Reference</a></p>
 <p><a href="https://docs.docker.com/compose/compose-file/">Docker Compose Reference</a></p>
 <p><a href="https://www.rstudio.com/products/shiny/download-server/">Shiny Server Download</a></p>
-<p><strong>TODO</strong></p>
-<ul>
-<li>Add SSL Encryption into the Docker-compose stack for Auth0 + Shiny + Nginx</li>
-<li>Nginx Optimizations</li>
-</ul>
 <div id="part-a---docker" class="section level2">
 <h2>PART A - Docker</h2>
 <div id="docker-installation" class="section level3">
@@ -203,13 +207,12 @@ sudo apt-get install -y docker-engine</code></pre>
 <p>This image is built from the <a href="https://github.com/rocker-org/shiny/blob/master/Dockerfile">Dockerfile</a> and the Entrypoint command which is <a href="https://github.com/rocker-org/shiny/blob/master/shiny-server.sh">shiny-server.sh</a></p>
 <p>To run this container on your host you can now run <code>docker run -d -p 3838:3838 rocker/shiny</code> This command exposes the HOST:CONTAINER ports 3838:3838 respectively and runs the shiny image in the background.</p>
 <p>You can now access the container by going to a browser and typing in <code>http://IPADDRESSOFHOST:3838</code> You should see “Welcome to Shiny Server”</p>
-<div id="shiny-apps" class="section level4">
-<h4>Shiny Apps</h4>
-<p>In order to ‘mirror’ your shiny apps from your host to the container you could also run:</p>
+<p><strong>Shiny Apps</strong></p>
+<p>In order to share your shiny apps from your host to the container you could also run:</p>
 <p><code>docker run -d -v /path/to/your/shinyapps/:/srv/shiny-server -p 3838:3838 rocker/shiny</code></p>
 </div>
-<div id="building-our-own-custom-shiny-container" class="section level4">
-<h4>Building our own custom shiny container</h4>
+<div id="building-our-own-custom-shiny-container" class="section level3">
+<h3>Building our own custom shiny container</h3>
 <p>Let’s start by taking hte Dockerfile and shiny-server.sh from the Repository above. I’ve created a copy of them in <a href="shiny/Dockerfile">/shiny/Dockerfile</a> and <a href="/shiny/shiny-server.sh" class="uri">/shiny/shiny-server.sh</a></p>
 <p>comes from r-base:latest which is also $VERSION locked</p>
 <p>Let’s use the Dockerfile from Rocker to generate our own Shiny Server with our own packages we require. From the Dockerfile:</p>
@@ -227,8 +230,8 @@ sudo apt-get install -y docker-engine</code></pre>
 <p>Now we can run it <code>docker run -d -p 3838:3838 -v /home/chiron/shinyapps/:/srv/shiny-server yourimage</code></p>
 <p>OK what have we done: We have built our own shiny server that resides in the cloud We bring this down to any computer anywhere and work on it. Share whatever local folder contains the apps</p>
 </div>
-<div id="get-a-custom-nginx-running" class="section level4">
-<h4>Get a custom Nginx running</h4>
+<div id="get-a-custom-nginx-running" class="section level3">
+<h3>Get a custom Nginx running</h3>
 <p>The nginx image we are using is from <a href="https://github.com/nginxinc/docker-nginx/blob/7b33a90d7441909664a920b0687db8d984ac314b/mainline/jessie/Dockerfile">Github Nginx</a></p>
 <p>I’ve created a copy of this Dockerfile in <a href="/nginx-shiny/web/Dockerfile">/nginx-shiny/web</a> The changes to this file include:</p>
 <pre><code>RUN rm -v /etc/nginx/nginx.conf
@@ -270,26 +273,47 @@ http {
 </div>
 </div>
 </div>
-</div>
-<div id="part-b---shiny-server-authentication-orchestration" class="section level2">
-<h2>PART B - Shiny Server Authentication &amp; Orchestration</h2>
+<div id="part-b---shiny-rstudio-and-nginx-orchestration" class="section level2">
+<h2>PART B - Shiny / RStudio and Nginx Orchestration</h2>
 <p>Let’s now use the principles in PART A To set-up a Shiny + Nginx container stack so that we have basic HTTP authentication on the Shiny Container</p>
 <p>We can now put this together</p>
-<p><strong>Install Docker-compose</strong> Make sure that when installing Docker-compose you are not installing the version from the Ubuntu repo but rather from Docker. Here are the instructions:</p>
+<p><strong>Install Docker-compose</strong></p>
+<p>In order to ensure that v2 and v3 of Docker-compose.yml files will work you’ll need to install docker compose from Docker and not from the Ubuntu Repo.</p>
 <ol style="list-style-type: decimal">
+<li><p>Make sure to remove your current docker-compose (if it was installed via apt-get) <code>sudo apt-get remove docker-compose</code> <code>sudo apt-get purge docker-compose</code></p></li>
 <li><p>Run <code>sudo -i</code></p></li>
 <li><p>Grab the binary <code>curl -L &quot;https://github.com/docker/compose/releases/download/1.11.1/docker-compose-$(uname -s)-$(uname -m)&quot; -o /usr/local/bin/docker-compose</code></p></li>
 <li><p>Apply executable permissions to the binary: <code>chmod +x /usr/local/bin/docker-compose</code></p></li>
 <li><p>Logout and login again</p></li>
-<li><p>Check your versions</p></li>
+<li><p>Check your versions / (Note at writing 20/02/2017)</p></li>
 </ol>
 <p><code>docker-compose --version</code> should output docker-compose version 1.9.0, build 2585387 <code>docker --version</code> should output Docker version 1.13.1, build 092cba3</p>
-<p>(Note at writing 20/02/2017)</p>
-<div id="putting-nginx-and-shiny-togeter-with-docker-compose" class="section level3">
-<h3>Putting Nginx and Shiny togeter with Docker-compose</h3>
+<div id="nginx-and-shiny-with-docker-compose" class="section level3">
+<h3>Nginx and Shiny with Docker-compose</h3>
 <p>Check our the <a href="/nginx-shiny/docker-compose.yml">docker-compose.yml</a> to see how this works. Basically we are stacking TWO containers (Shiny from rocker/shiny) and our web container which is <strong>built</strong> from the /web directory.</p>
 <p>From the <code>~/nginx-shiny</code> directory you can run <code>docker-compose up</code></p>
-<p>You can now access the container by going to a browser and typing in <code>http://IPADDRESSOFHOST</code> You’ll need to login with your_user_name as per the Nginx steps above and should see “Welcome to Shiny Server” scp -r /home/chiron/0-Dev/satrday/nginx chiron@ :/home/</p>
+<p>You can now access the container by going to a browser and typing in <code>http://IPADDRESSOFHOST</code> You’ll need to login with your_user_name as per the Nginx steps above and should see “Welcome to Shiny Server”</p>
+<p>If you want to now run this stack in the background then run <code>docker-compose up -d</code> and to run it while ensuring that you build the Web container each time (otherwise you’ll run the built image) <code>docker-compose up -d --build</code></p>
+</div>
+<div id="shiny-and-rstudio-using-docker-compose" class="section level3">
+<h3>Shiny and Rstudio using Docker-compose</h3>
+<p>As per the .yaml file you can see we are using the following images:</p>
+<pre><code>rstudio:
+  image: rocker/hadleyverse</code></pre>
+<p>and</p>
+<pre><code>shiny:
+  image: myshiny:v1</code></pre>
+<p>You can use the rocker/shiny image if you prefer as it will be pretty much the same except won’t have the ggplot and dplyr packages we installed from CRAN</p>
+<p>You can now go <code>~/shiny-rstudio</code> and then check out the <a href="/shiny-rstudio/docker-compose.yml">docker-compose.yml</a> To run this stack you can enter the directory and run <code>docker-compose up</code> or <code>docker-compose up -d</code></p>
+<p>There are now other opportunities. If you want to STACK all three containers you can add the WEb container into the stack and then point various ports on the web container to reverse proxy to Rstudio and to shiny.</p>
+<p>You’ll need to update the nginx.conf file to pass through to shiny:3838 and rstudio:8787 but the options are limitless.</p>
+</div>
+</div>
+<div id="part-c---shiny-authentication-with-oauth" class="section level2">
+<h2>PART C - Shiny Authentication with OAuth</h2>
+<div id="shinyproxy.io-and-containers" class="section level3">
+<h3>ShinyProxy.io and Containers</h3>
+<p>This is a placeholder - Due to popular demand will put a tutorial up here on this</p>
 </div>
 <div id="out-of-the-box-auth0-implementation-almost-complete" class="section level3">
 <h3>Out of the Box Auth0 Implementation (Almost complete)</h3>

@@ -7,12 +7,14 @@
     - [Docker installation](#docker-installation)
     - [Docker Quick Reference](#docker-quick-reference)
     - [Pulling the Docker Shiny Container](#pulling-the-docker-shiny-container)
-      - [Shiny Apps](#shiny-apps)
-      - [Building our own custom shiny container](#building-our-own-custom-shiny-container)
-      - [Get a custom Nginx running](#get-a-custom-nginx-running)
+    - [Building our own custom shiny container](#building-our-own-custom-shiny-container)
+    - [Get a custom Nginx running](#get-a-custom-nginx-running)
         - [Adding HTACCESS Users](#adding-htaccess-users)
-  - [PART B - Shiny Server Authentication & Orchestration](#part-b---shiny-server-authentication--orchestration)
-    - [Putting Nginx and Shiny togeter with Docker-compose](#putting-nginx-and-shiny-togeter-with-docker-compose)
+  - [PART B - Shiny / RStudio and Nginx Orchestration](#part-b---shiny--rstudio-and-nginx-orchestration)
+    - [Nginx and Shiny with Docker-compose](#nginx-and-shiny-with-docker-compose)
+    - [Shiny and Rstudio using Docker-compose](#shiny-and-rstudio-using-docker-compose)
+  - [PART C - Shiny Authentication with OAuth](#part-c---shiny-authentication-with-oauth)
+    - [ShinyProxy.io and Containers](#shinyproxyio-and-containers)
     - [Out of the Box Auth0 Implementation (Almost complete)](#out-of-the-box-auth0-implementation-almost-complete)
       - [Notes](#notes)
 
@@ -22,6 +24,11 @@
 This is a Repository of all the Resources from my talk (Marko Jakovljevic) at the Cape Town SatrDay Conference
 
 > Get started with downloading the [Slide Deck here](https://view.attach.io/BJlisRYYg)  - This is what you can use to follow with the documents
+
+**TODO**
+
+- Add SSL Encryption into the Docker-compose stack for Auth0 + Shiny + Nginx (Letsencrypt)
+- Nginx Optimizations
 
 *******
 
@@ -40,12 +47,6 @@ This document also assumes that you know how to use R and Shiny Server. If you n
 [Docker Compose Reference](https://docs.docker.com/compose/compose-file/)
 
 [Shiny Server Download](https://www.rstudio.com/products/shiny/download-server/)
-
-**TODO**
-
-- Add SSL Encryption into the Docker-compose stack for Auth0 + Shiny + Nginx (Letsencrypt)
-- Nginx Optimizations
-
 
 ## PART A - Docker
 
@@ -110,12 +111,13 @@ To run this container on your host you can now run
 You can now access the container by going to a browser and typing in `http://IPADDRESSOFHOST:3838`
 You should see "Welcome to Shiny Server"
 
-#### Shiny Apps
-In order to 'mirror' your shiny apps from your host to the container you could also run:
+**Shiny Apps**
+
+In order to share your shiny apps from your host to the container you could also run:
 
 `docker run -d -v /path/to/your/shinyapps/:/srv/shiny-server -p 3838:3838 rocker/shiny`
 
-#### Building our own custom shiny container
+### Building our own custom shiny container
 
 Let's start by taking hte Dockerfile and shiny-server.sh from the Repository above. I've created a copy of them in 
 [/shiny/Dockerfile](shiny/Dockerfile) and [/shiny/shiny-server.sh](/shiny/shiny-server.sh)
@@ -148,7 +150,7 @@ Now we can run it `docker run -d -p 3838:3838 -v /home/chiron/shinyapps/:/srv/sh
 OK what have we done: We have built our own shiny server that resides in the cloud
 We bring this down to any computer anywhere and work on it. Share whatever local folder contains the apps
 
-#### Get a custom Nginx running
+### Get a custom Nginx running
 
 The nginx image we are using is from [Github Nginx](https://github.com/nginxinc/docker-nginx/blob/7b33a90d7441909664a920b0687db8d984ac314b/mainline/jessie/Dockerfile)
 
@@ -204,32 +206,35 @@ Now build your web image in your /nginx-shiny/web path
 
 ****
 
-## PART B - Shiny Server Authentication & Orchestration
+## PART B - Shiny / RStudio and Nginx Orchestration
 
 Let's now use the principles in PART A To set-up a Shiny + Nginx container stack so that we have basic HTTP authentication on the Shiny Container
 
 We can now put this together
 
 **Install Docker-compose**
-Make sure that when installing Docker-compose you are not installing the version from the Ubuntu repo but rather from  Docker. Here are the instructions:
 
-1. Run `sudo -i`
+In order to ensure that v2 and v3 of Docker-compose.yml files will work you'll need to install docker compose from Docker and not from the Ubuntu Repo. 
 
-2. Grab the binary `curl -L "https://github.com/docker/compose/releases/download/1.11.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose`
+1. Make sure to remove your current docker-compose (if it was installed via apt-get)
+`sudo apt-get remove docker-compose`
+`sudo apt-get purge docker-compose`
 
-3. Apply executable permissions to the binary:
+2. Run `sudo -i`
+
+3. Grab the binary `curl -L "https://github.com/docker/compose/releases/download/1.11.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose`
+
+4. Apply executable permissions to the binary:
 `chmod +x /usr/local/bin/docker-compose`
 
-4. Logout and login again 
+5. Logout and login again 
 
-5. Check your versions
+6. Check your versions / (Note at writing 20/02/2017)
 
 `docker-compose --version` should output docker-compose version 1.9.0, build 2585387
 `docker --version` should output Docker version 1.13.1, build 092cba3
 
-(Note at writing 20/02/2017)
-
-### Putting Nginx and Shiny togeter with Docker-compose
+### Nginx and Shiny with Docker-compose
 
 Check our the [docker-compose.yml](/nginx-shiny/docker-compose.yml) to see how this works.
 Basically we are stacking TWO containers (Shiny from rocker/shiny) and our web container which is **built** from the /web directory. 
@@ -238,13 +243,38 @@ From the `~/nginx-shiny` directory you can run `docker-compose up`
 
 You can now access the container by going to a browser and typing in `http://IPADDRESSOFHOST`
 You'll need to login with your_user_name as per the Nginx steps above and should see "Welcome to Shiny Server"
-scp -r /home/chiron/0-Dev/satrday/nginx chiron@ :/home/
 
-### Shiny with Rstudio using Docker-compose
+If you want to now run this stack in the background then run `docker-compose up -d` and to run it while ensuring that you build the Web container each time (otherwise you'll run the built image) `docker-compose up -d --build`
+
+### Shiny and Rstudio using Docker-compose
+
+As per the .yaml file you can see we are using the following images:
+
+```
+rstudio:
+  image: rocker/hadleyverse
+```
+  and
+  
+```
+shiny:
+  image: myshiny:v1
+```
+
+You can use the rocker/shiny image if you prefer as it will be pretty much the same except won't have the ggplot and dplyr packages we installed from CRAN 
 
 You can now go `~/shiny-rstudio` and then check out the [docker-compose.yml](/shiny-rstudio/docker-compose.yml)
-To run this stack you can access this via:
+To run this stack you can enter the directory and run `docker-compose up` or `docker-compose up -d`
 
+There are now other opportunities. If you want to STACK all three containers you can add the WEb container into the stack and then point various ports on the web container to reverse proxy to Rstudio and to shiny.
+
+You'll need to update the nginx.conf file to pass through to shiny:3838 and rstudio:8787 but the options are limitless.
+
+## PART C - Shiny Authentication with OAuth
+
+### ShinyProxy.io and Containers
+
+This is a placeholder - Due to popular demand will put a tutorial up here on this
 
 ### Out of the Box Auth0 Implementation (Almost complete)
 
